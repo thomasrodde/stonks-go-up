@@ -1,13 +1,47 @@
+# Import current yahoo finance API, data manipulation, dash modules
+
+import yfinance as yf
+from datetime import date
+from dateutil.relativedelta import relativedelta
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import pandas as pd
 import numpy as np
+import pandas as pd
+import math
+import plotly.express as px
+import plotly.graph_objects as go
 from dash.dependencies import Output, Input
 
-data = pd.read_csv("avocado.csv")
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-data.sort_values("Date", inplace=True)
+trended_prices = pd.read_csv("trended_prices.csv")
+compared_prices = pd.read_csv("compared_prices.csv")
+
+labels = {0: 'GOOG'
+, 1: 'NKE'
+, 2: 'MSFT'
+, 3: 'KO'
+, 4: 'FB'
+, 5: 'GME'
+, 6: 'CRM'
+, 7: 'DIS'
+, 8: 'OTEX'
+, 9: 'F'
+, 10: 'SNAP'
+, 11: 'MCD'
+, 12: 'VTI'
+, 13: 'AAPL'
+, 14: 'NFLX'
+, 15: 'TSLA'}
+
+labels_list = list(labels.values())
+
+ticker_tuples = ' '.join(labels_list)
+
+tickers = yf.Tickers(ticker_tuples)
+
+tickers_ls = list(tickers.tickers)
+
+# Current reported fields: price history, recent price comparisons
 
 external_stylesheets = [
     {
@@ -18,20 +52,19 @@ external_stylesheets = [
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-app.title = "Avocado Analytics: Understand Your Avocados!"
+app.title = "Stonks Monitoring"
 
 app.layout = html.Div(
     children=[
         html.Div(
             children=[
-                html.P(children="🥑", className="header-emoji"),
+                html.P(children="🤑", className="header-emoji"),
                 html.H1(
-                    children="Avocado Analytics", className="header-title"
+                    children="Stonks", className="header-title"
                 ),
                 html.P(
-                    children="Analyze the behavior of avocado prices"
-                    " and the number of avocados sold in the US"
-                    " between 2015 and 2018",
+                    children="Track the trended prices of stocks "
+                    "and assess sell/buy activities.",
                     className="header-description",
                 ),
             ],
@@ -41,34 +74,18 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Div(children="Region", className="menu-title"),
+                        html.Div(children="Symbol", className="menu-title"),
                         dcc.Dropdown(
-                            id="region-filter",
+                            id="symbol-filter",
                             options=[
-                                {"label": region, "value": region}
-                                for region in np.sort(data.region.unique())
+                                {"label": symbol, "value": symbol}
+                                for symbol in np.sort(tickers_ls)
                             ],
-                            value="Albany",
+                            value="GOOG",
                             clearable=False,
                             className="dropdown",
                         ),
                     ]
-                ),
-                html.Div(
-                    children=[
-                        html.Div(children="Type", className="menu-title"),
-                        dcc.Dropdown(
-                            id="type-filter",
-                            options=[
-                                {"label": avocado_type, "value": avocado_type}
-                                for avocado_type in data.type.unique()
-                            ],
-                            value="organic",
-                            clearable=False,
-                            searchable=False,
-                            className="dropdown",
-                        ),
-                    ],
                 ),
                 html.Div(
                     children=[
@@ -78,10 +95,10 @@ app.layout = html.Div(
                             ),
                         dcc.DatePickerRange(
                             id="date-range",
-                            min_date_allowed=data.Date.min().date(),
-                            max_date_allowed=data.Date.max().date(),
-                            start_date=data.Date.min().date(),
-                            end_date=data.Date.max().date(),
+                            min_date_allowed='2001-01-01',
+                            max_date_allowed=date.today(),
+                            start_date=date.today() - relativedelta(days = 365),
+                            end_date=date.today(),
                         ),
                     ]
                 ),
@@ -92,13 +109,13 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=dcc.Graph(
-                        id="price-chart", config={"displayModeBar": False},
+                        id="trended-chart", config={"displayModeBar": False},
                     ),
                     className="card",
                 ),
                 html.Div(
                     children=dcc.Graph(
-                        id="volume-chart", config={"displayModeBar": False},
+                        id="compared-chart", config={"displayModeBar": False},
                     ),
                     className="card",
                 ),
@@ -108,36 +125,34 @@ app.layout = html.Div(
     ]
 )
 
-
+# To process filters and user input, we'll callback to the Yahoo API data source.
+# The trend and price comparison charts should update simultaneously.
 @app.callback(
-    [Output("price-chart", "figure"), Output("volume-chart", "figure")],
+    [Output("trended-chart", "figure"), Output("compared-chart", "figure")],
     [
-        Input("region-filter", "value"),
-        Input("type-filter", "value"),
+        Input("symbol-filter", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
     ],
 )
-def update_charts(region, avocado_type, start_date, end_date):
-    mask = (
-        (data.region == region)
-        & (data.type == avocado_type)
-        & (data.Date >= start_date)
-        & (data.Date <= end_date)
-    )
-    filtered_data = data.loc[mask, :]
-    price_chart_figure = {
+def update_charts(symbol, start_date, end_date):
+    mask_trended = (
+        (trended_prices.Date >= start_date)
+        & (trended_prices.Date <= end_date)
+    ) # the trended mask filters on date and symbol. 
+    filtered_trended_prices = trended_prices.loc[mask_trended, ['Date', symbol]]
+    trended_chart_figure = {
         "data": [
             {
-                "x": filtered_data["Date"],
-                "y": filtered_data["AveragePrice"],
+                "x": filtered_trended_prices["Date"],
+                "y": filtered_trended_prices[symbol],
                 "type": "lines",
                 "hovertemplate": "$%{y:.2f}<extra></extra>",
             },
         ],
         "layout": {
             "title": {
-                "text": "Average Price of Avocados",
+                "text": "Trended Price of the Stock",
                 "x": 0.05,
                 "xanchor": "left",
             },
@@ -146,24 +161,45 @@ def update_charts(region, avocado_type, start_date, end_date):
             "colorway": ["#17B897"],
         },
     }
+    mask_compared = (
+        (compared_prices.ticker == symbol)
+    ) # the comparison mask filters on symbol only. 
 
-    volume_chart_figure = {
-        "data": [
-            {
-                "x": filtered_data["Date"],
-                "y": filtered_data["Total Volume"],
-                "type": "lines",
-            },
-        ],
-        "layout": {
-            "title": {"text": "Avocados Sold", "x": 0.05, "xanchor": "left"},
-            "xaxis": {"fixedrange": True},
-            "yaxis": {"fixedrange": True},
-            "colorway": ["#E12D39"],
-        },
-    }
-    return price_chart_figure, volume_chart_figure
+    filtered_compared_chart = compared_prices.loc[mask_compared, :]
+
+    x=filtered_compared_chart['Type']
+    y=filtered_compared_chart['Value']
+    z=filtered_compared_chart['ticker']
+
+    compared_chart_figure = go.Figure(
+        data=[go.Bar(
+        x=x,
+        y=y,
+        text=y,
+        customdata=z, 
+        textposition='outside',
+        marker=dict(color="LightSeaGreen"),
+        hovertemplate="<br>"
+        .join(["Ticker: %{customdata}<extra></extra>",
+               "Type: %{x}",
+               "Value: %{y}"
+              ]),
+        texttemplate='%{y}'
+        )])
+    
+    compared_chart_figure.update_yaxes(# Prices are in dollars
+        tickprefix="$", showgrid=True
+        )
+    compared_chart_figure.update_layout(title = 'Price Comparisons',
+                  yaxis_title=None,
+                  xaxis_title=None,
+                  barmode='group',
+                  template='plotly_white',)
+    return trended_chart_figure, compared_chart_figure
 
 
 if __name__ == "__main__":
     app.run_server(debug=True)
+
+
+
