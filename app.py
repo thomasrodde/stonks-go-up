@@ -6,15 +6,9 @@ from dateutil.relativedelta import relativedelta
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import numpy as np
 import pandas as pd
-import math
-import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Output, Input
-
-trended_prices = pd.read_csv("trended_prices.csv")
-compared_prices = pd.read_csv("compared_prices.csv")
 
 labels = {0: 'GOOG'
 , 1: 'NKE'
@@ -56,6 +50,7 @@ app.title = "Stonks Monitoring"
 
 app.layout = html.Div(
     children=[
+        #dcc.Location(id='stock-url')
         html.Div(
             children=[
                 html.P(children="🤑", className="header-emoji"),
@@ -74,19 +69,10 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Div(children="Symbol", className="menu-title"),
-                        dcc.Dropdown(
-                            id="symbol-filter",
-                            options=[
-                                {"label": symbol, "value": symbol}
-                                for symbol in np.sort(tickers_ls)
-                            ],
-                            value="GOOG",
-                            clearable=False,
-                            className="dropdown",
+                        html.Div(children="Stock Symbol", className="menu-title"),
+                        dcc.Input(id="symbol-filter", value='GOOG', type='text')
+                        ]
                         ),
-                    ]
-                ),
                 html.Div(
                     children=[
                         html.Div(
@@ -98,37 +84,44 @@ app.layout = html.Div(
                             min_date_allowed='2001-01-01',
                             max_date_allowed=date.today(),
                             start_date=date.today() - relativedelta(days = 365),
-                            end_date=date.today(),
-                        ),
-                    ]
-                ),
+                            end_date=date.today()
+                        )])
             ],
             className="menu",
         ),
         html.Div(
             children=[
                 html.Div(
-                    children=dcc.Graph(
-                        id="trended-chart", config={"displayModeBar": False},
-                    ),
-                    className="card",
-                ),
-                html.Div(
-                    children=dcc.Graph(
-                        id="compared-chart", config={"displayModeBar": False},
-                    ),
-                    className="card",
-                ),
-            ],
-            className="wrapper",
-        ),
-    ]
-)
+                    children=[
+                    dcc.Loading(
+                        id="loading-1",
+                        type="default",
+                        children=[
+                        #html.Div(children=[
+                         #   dcc.Link(id="company-link", children="Read more about ____ here.")]),
+                        html.Div(children=[
+                            dcc.Graph(id="trended-chart",config={"displayModeBar": False})],
+                            className="card"),
+                        html.Div(children=[
+                            dcc.Graph(id="compared-chart", config={"displayModeBar": False})],
+                            className="card"),
+                        ],
+                        )
+                    ],
+                    )
+                ],
+                className="wrapper"
+                )
+        ]
+        )
 
 # To process filters and user input, we'll callback to the Yahoo API data source.
 # The trend and price comparison charts should update simultaneously.
 @app.callback(
-    [Output("trended-chart", "figure"), Output("compared-chart", "figure")],
+    [
+        Output("trended-chart", "figure"),
+        Output("compared-chart", "figure"),
+     ],
     [
         Input("symbol-filter", "value"),
         Input("date-range", "start_date"),
@@ -136,23 +129,25 @@ app.layout = html.Div(
     ],
 )
 def update_charts(symbol, start_date, end_date):
-    mask_trended = (
-        (trended_prices.Date >= start_date)
-        & (trended_prices.Date <= end_date)
-    ) # the trended mask filters on date and symbol. 
-    filtered_trended_prices = trended_prices.loc[mask_trended, ['Date', symbol]]
+    # Trended prices are updated when the user selects a symbol and start/end dates
+    stock_ticker = yf.Ticker(symbol)
+    prices = pd.DataFrame(
+        stock_ticker
+        .history(start = start_date)['Close']
+        ).rename(columns = {'Close': symbol}).reset_index()
+    trended_prices = prices.loc[(prices['Date'] >= start_date) & (prices['Date'] <= end_date)]
     trended_chart_figure = {
         "data": [
             {
-                "x": filtered_trended_prices["Date"],
-                "y": filtered_trended_prices[symbol],
+                "x": trended_prices["Date"],
+                "y": trended_prices[symbol],
                 "type": "lines",
                 "hovertemplate": "$%{y:.2f}<extra></extra>",
             },
         ],
         "layout": {
             "title": {
-                "text": "Trended Price of the Stock",
+                "text": "Trended Stock Price",
                 "x": 0.05,
                 "xanchor": "left",
             },
@@ -161,15 +156,20 @@ def update_charts(symbol, start_date, end_date):
             "colorway": ["#17B897"],
         },
     }
-    mask_compared = (
-        (compared_prices.ticker == symbol)
-    ) # the comparison mask filters on symbol only. 
-
-    filtered_compared_chart = compared_prices.loc[mask_compared, :]
-
-    x=filtered_compared_chart['Type']
-    y=filtered_compared_chart['Value']
-    z=filtered_compared_chart['ticker']
+    # Compared prices are updated when the user selects a symbol
+    compared_prices = pd.DataFrame({
+        'ticker': symbol,
+        'two_hundred_day_average': [stock_ticker.info['twoHundredDayAverage']],
+        'previous_close': [stock_ticker.info['previousClose']],
+        'fifty_day_average': [stock_ticker.info['fiftyDayAverage']]
+        },
+        columns = ['ticker','two_hundred_day_average', 'fifty_day_average', 'previous_close']
+        ).melt(id_vars=['ticker'], 
+               var_name=['Type'],
+               value_name='Value')
+    x=compared_prices['Type']
+    y=compared_prices['Value']
+    z=compared_prices['ticker']
 
     compared_chart_figure = go.Figure(
         data=[go.Bar(
@@ -190,7 +190,7 @@ def update_charts(symbol, start_date, end_date):
     compared_chart_figure.update_yaxes(# Prices are in dollars
         tickprefix="$", showgrid=True
         )
-    compared_chart_figure.update_layout(title = 'Price Comparisons',
+    compared_chart_figure.update_layout(title = 'Interday Comparisons',
                   yaxis_title=None,
                   xaxis_title=None,
                   barmode='group',
