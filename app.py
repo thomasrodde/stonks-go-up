@@ -129,13 +129,14 @@ def update_charts(symbol, name, start_date, end_date):
     
     ctx = dash.callback_context
     input_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    stripped_name = name
-    #.replace('.', '') \
-	#.replace(',', '') \
-	#.replace(' Inc', '') \
-	#.replace(' ', '') \
-	#.replace(' inc', '') \
-	#.lower()
+    stripped_name = name \
+    .replace('.', '') \
+	.replace(',', '') \
+	.replace(' Inc', '') \
+	.replace(' ', '') \
+	.replace(' inc', '') \
+	.replace("'", '') \
+	.lower()
     api_key='c5129h2ad3if5950n110'
 
     if input_id == 'company-symbol':
