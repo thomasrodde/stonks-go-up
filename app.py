@@ -9,108 +9,99 @@ import dash_html_components as html
 import pandas as pd
 import plotly.graph_objects as go
 from dash.dependencies import Output, Input
-
-labels = {0: 'GOOG'
-, 1: 'NKE'
-, 2: 'MSFT'
-, 3: 'KO'
-, 4: 'FB'
-, 5: 'GME'
-, 6: 'CRM'
-, 7: 'DIS'
-, 8: 'OTEX'
-, 9: 'F'
-, 10: 'SNAP'
-, 11: 'MCD'
-, 12: 'VTI'
-, 13: 'AAPL'
-, 14: 'NFLX'
-, 15: 'TSLA'}
-
-labels_list = list(labels.values())
-
-ticker_tuples = ' '.join(labels_list)
-
-tickers = yf.Tickers(ticker_tuples)
-
-tickers_ls = list(tickers.tickers)
+import requests
 
 # Current reported fields: price history, recent price comparisons
 
 external_stylesheets = [
     {
-        "href": "https://fonts.googleapis.com/css2?"
-        "family=Lato:wght@400;700&display=swap",
-        "rel": "stylesheet",
+        'href': 'https://fonts.googleapis.com/css2?'
+        'family=Lato:wght@400;700&display=swap',
+        'rel': 'stylesheet',
     },
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-app.title = "Stonks Monitoring"
+app.title = 'Stock Advisor'
 
 app.layout = html.Div(
     children=[
-        #dcc.Location(id='stock-url')
         html.Div(
             children=[
-                html.P(children="🤑", className="header-emoji"),
+                html.P(children='🤑', className='header-emoji'),
                 html.H1(
-                    children="Stonks", className="header-title"
+                    children='Stock Advisor', className='header-title'
                 ),
                 html.P(
-                    children="Track the trended prices of stocks "
-                    "and assess sell/buy activities.",
-                    className="header-description",
+                    children='Track the trended prices of stocks '
+                    'and assess sell/buy activities.',
+                    className='header-description',
                 ),
             ],
-            className="header",
+            className='header',
         ),
         html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Div(children="Stock Symbol", className="menu-title"),
-                        dcc.Input(id="symbol-filter", value='GOOG', type='text')
+                        html.Div(children='Company Search', className='menu-title'),
+                        dcc.Input(id='company-name', value='Alphabet Inc', type='search')
+                        ]
+                        ),
+                html.Div(
+                    children=[
+                        html.Div(children='Symbol Search', className='menu-title'),
+                        dcc.Input(id='company-symbol', value='GOOGL', type='search')
                         ]
                         ),
                 html.Div(
                     children=[
                         html.Div(
-                            children="Date Range",
-                            className="menu-title"
+                            children='Date Range',
+                            className='menu-title'
                             ),
                         dcc.DatePickerRange(
-                            id="date-range",
-                            min_date_allowed='2001-01-01',
+                            id='date-range',
+                            min_date_allowed='1900-01-01',
                             max_date_allowed=date.today(),
                             start_date=date.today() - relativedelta(days = 365),
                             end_date=date.today()
                         )])
             ],
-            className="menu",
+            className='menu',
         ),
         html.Div(
             children=[
                 html.Div(
                     children=[
                     dcc.Loading(
-                        id="loading-1",
-                        type="default",
+                        id='loading-1',
+                        type='default',
                         children=[
-                        #html.Div(children=[
-                         #   dcc.Link(id="company-link", children="Read more about ____ here.")]),
                         html.Div(children=[
-                            dcc.Graph(id="trended-chart",config={"displayModeBar": False})],
-                            className="card"),
+                            html.Div(children=[
+                                html.Div(children='Name:',
+                                 className='menu-title',
+                                  style={'display': 'inline-block', 'padding': '5px'}),
+                                html.Div(id = 'company_name', style={'display': 'inline-block'})]),
+                            html.Div(children=[
+                                html.Div(children='Symbol: ',
+                                 className='menu-title',
+                                  style={'display': 'inline-block', 'padding': '5px'}),
+                                html.Div(id = 'company_symbol', style={'display': 'inline-block'})])],
+                            className='subtitle'),
                         html.Div(children=[
-                            dcc.Graph(id="compared-chart", config={"displayModeBar": False})],
-                            className="card"),
+                            dcc.Graph(id='trended-chart',config={'displayModeBar': False})],
+                            className='card'),
+                        html.Div(children=[
+                            dcc.Graph(id='compared-chart', config={'displayModeBar': False})],
+                            className='card'),
                         ],
                         )
                     ],
                     )
                 ],
-                className="wrapper"
+                className='wrapper'
                 )
         ]
         )
@@ -119,52 +110,91 @@ app.layout = html.Div(
 # The trend and price comparison charts should update simultaneously.
 @app.callback(
     [
-        Output("trended-chart", "figure"),
-        Output("compared-chart", "figure"),
+        Output('trended-chart', 'figure'),
+        Output('compared-chart', 'figure'),
+        Output('company_symbol', 'children'),
+        Output('company_name', 'children')
      ],
     [
-        Input("symbol-filter", "value"),
-        Input("date-range", "start_date"),
-        Input("date-range", "end_date"),
+        Input('company-symbol', 'value'),
+        Input('company-name', 'value'),
+        Input('date-range', 'start_date'),
+        Input('date-range', 'end_date'),
     ],
 )
-def update_charts(symbol, start_date, end_date):
+def update_charts(symbol, name, start_date, end_date):
+    
     # Trended prices are updated when the user selects a symbol and start/end dates
-    stock_ticker = yf.Ticker(symbol)
-    prices = pd.DataFrame(
+    # Declaring the API call as an initial variable avoids making excessive calls and slowing down chart loading
+    
+    ctx = dash.callback_context
+    input_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    stripped_name = name
+    #.replace('.', '') \
+	#.replace(',', '') \
+	#.replace(' Inc', '') \
+	#.replace(' ', '') \
+	#.replace(' inc', '') \
+	#.lower()
+    api_key='c5129h2ad3if5950n110'
+
+    if input_id == 'company-symbol':
+    	company_name =  yf.Ticker(symbol).info['shortName']
+    	company_symbol = symbol
+    	stock_ticker = yf.Ticker(symbol)
+    elif stripped_name == 'google':
+    	company_name =  yf.Ticker('GOOG').info['shortName']
+    	company_symbol = 'GOOG'
+    	stock_ticker = yf.Ticker('GOOG')
+    #elif stripped_name == 'alibaba':
+    #	company_name =  yf.Ticker('BABA').info['shortName']
+    #	company_symbol = 'BABA'
+    #	stock_ticker = yf.Ticker('BABA')
+    #elif stripped_name == 'zoom':
+    #	company_name =  yf.Ticker('ZM').info['shortName']
+    #	company_symbol = 'ZM'
+    #	stock_ticker = yf.Ticker('ZM')
+    else:
+        r = requests.get('https://finnhub.io/api/v1/search?q={}&token={}'.format(stripped_name, api_key)).json()['result']
+        sym_initial = pd.DataFrame(r)
+        sym = sym_initial[~sym_initial['symbol'].str.contains('.', regex=False)]
+        company_symbol = list(sym.symbol)[0]
+        company_name = list(sym.description)[0]
+        stock_ticker = yf.Ticker(company_symbol)
+
+    # We build the dataframe using the ticker symbol
+
+    trended_prices = pd.DataFrame(
         stock_ticker
-        .history(start = start_date)['Close']
-        ).rename(columns = {'Close': symbol}).reset_index()
-    trended_prices = prices.loc[(prices['Date'] >= start_date) & (prices['Date'] <= end_date)]
+        .history(start = start_date, end=(pd.to_datetime(end_date) + relativedelta(days=1)))['Close']
+        ).rename(columns = {'Close': company_symbol}).reset_index()
     trended_chart_figure = {
-        "data": [
+        'data': [
             {
-                "x": trended_prices["Date"],
-                "y": trended_prices[symbol],
-                "type": "lines",
-                "hovertemplate": "$%{y:.2f}<extra></extra>",
+                'x': trended_prices['Date'],
+                'y': trended_prices[company_symbol],
+                'type': 'lines',
+                'hovertemplate': '$%{y:.2f}<extra></extra>',
             },
         ],
-        "layout": {
-            "title": {
-                "text": "Trended Stock Price",
-                "x": 0.05,
-                "xanchor": "left",
+        'layout': {
+            'title': {
+                'text': 'Trended Stock Price',
+                'x': 0.05,
+                'xanchor': 'left',
             },
-            "xaxis": {"fixedrange": True},
-            "yaxis": {"tickprefix": "$", "fixedrange": True},
-            "colorway": ["#17B897"],
+            'xaxis': {'fixedrange': True},
+            'yaxis': {'tickprefix': '$', 'fixedrange': True},
+            'colorway': ['#17B897'],
         },
     }
-    # Compared prices are updated when the user selects a symbol
+    # Compared prices are updated when the user selects a symbol or company
     compared_prices = pd.DataFrame({
-        'ticker': symbol,
-        'two_hundred_day_average': [stock_ticker.info['twoHundredDayAverage']],
-        'previous_close': [stock_ticker.info['previousClose']],
-        'fifty_day_average': [stock_ticker.info['fiftyDayAverage']]
-        },
-        columns = ['ticker','two_hundred_day_average', 'fifty_day_average', 'previous_close']
-        ).melt(id_vars=['ticker'], 
+        'ticker': [company_symbol],
+    	'Two Hundred Day Average': [stock_ticker.info['twoHundredDayAverage']],
+    	'Fifty Day Average': [stock_ticker.info['fiftyDayAverage']],
+    	'Previous Close': [stock_ticker.info['previousClose']]}) \
+        .melt(id_vars=['ticker'], 
                var_name=['Type'],
                value_name='Value')
     x=compared_prices['Type']
@@ -178,27 +208,27 @@ def update_charts(symbol, start_date, end_date):
         text=y,
         customdata=z, 
         textposition='outside',
-        marker=dict(color="LightSeaGreen"),
-        hovertemplate="<br>"
-        .join(["Ticker: %{customdata}<extra></extra>",
-               "Type: %{x}",
-               "Value: %{y}"
+        marker=dict(color='LightSeaGreen'),
+        hovertemplate='<br>'
+        .join(['Ticker: %{customdata}<extra></extra>',
+               'Type: %{x}',
+               'Value: %{y}'
               ]),
         texttemplate='%{y}'
         )])
-    
+    # We have to make some layout tweaks to match the trended chart's styling
     compared_chart_figure.update_yaxes(# Prices are in dollars
-        tickprefix="$", showgrid=True
+        tickprefix='$', showgrid=True
         )
-    compared_chart_figure.update_layout(title = 'Interday Comparisons',
+    compared_chart_figure.update_layout(title = 'Interday Price Comparisons',
                   yaxis_title=None,
                   xaxis_title=None,
                   barmode='group',
                   template='plotly_white',)
-    return trended_chart_figure, compared_chart_figure
+    return trended_chart_figure, compared_chart_figure, company_symbol, company_name
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run_server(debug=True)
 
 

@@ -43,8 +43,22 @@ body {
 .card {
     margin-bottom: 24px;
     box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.18);
+    background-color: #FFFFFF;
 }
 
+.subtitle {
+    height: 50px;
+    width: 912px;
+    display: flex;
+    padding-top: 24px;
+    justify-content: space-evenly;
+    margin: -80px auto 0 auto;
+    margin-bottom: 24px;
+    margin-top: 24px;
+    box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.18);
+    background-color: #FFFFFF;
+
+}
 .menu {
     height: 112px;
     width: 912px;
