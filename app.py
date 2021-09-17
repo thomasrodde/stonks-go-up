@@ -137,7 +137,8 @@ def update_charts(symbol, name, start_date, end_date):
 	.replace(' inc', '') \
 	.replace("'", '') \
 	.lower()
-    api_key='c5129h2ad3if5950n110'
+    
+    api_key='SI7YWG525NBBUL1O'
 
     if input_id == 'company-symbol':
     	company_name =  yf.Ticker(symbol).info['shortName']
@@ -147,21 +148,13 @@ def update_charts(symbol, name, start_date, end_date):
     	company_name =  yf.Ticker('GOOG').info['shortName']
     	company_symbol = 'GOOG'
     	stock_ticker = yf.Ticker('GOOG')
-    #elif stripped_name == 'alibaba':
-    #	company_name =  yf.Ticker('BABA').info['shortName']
-    #	company_symbol = 'BABA'
-    #	stock_ticker = yf.Ticker('BABA')
-    #elif stripped_name == 'zoom':
-    #	company_name =  yf.Ticker('ZM').info['shortName']
-    #	company_symbol = 'ZM'
-    #	stock_ticker = yf.Ticker('ZM')
     else:
-        r = requests.get('https://finnhub.io/api/v1/search?q={}&token={}'.format(stripped_name, api_key)).json()['result']
-        sym_initial = pd.DataFrame(r)
-        sym = sym_initial[~sym_initial['symbol'].str.contains('.', regex=False)]
-        company_symbol = list(sym.symbol)[0]
-        company_name = list(sym.description)[0]
-        stock_ticker = yf.Ticker(company_symbol)
+    	r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
+    	sym_initial = pd.DataFrame(r)
+    	sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
+    	company_symbol = list(sym['1. symbol'])[0]
+    	company_name = list(sym['2. name'])[0]
+    	stock_ticker = yf.Ticker(company_symbol)
 
     # We build the dataframe using the ticker symbol
 
