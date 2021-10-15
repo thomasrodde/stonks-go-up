@@ -22,7 +22,7 @@ external_stylesheets = [
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-app.title = 'Stock Advisor'
+app.title = 'Tidysums'
 
 app.layout = html.Div(
     children=[
@@ -30,11 +30,11 @@ app.layout = html.Div(
             children=[
                 html.P(children='🤑', className='header-emoji'),
                 html.H1(
-                    children='Stock Advisor', className='header-title'
+                    children='Tidysums', className='header-title'
                 ),
                 html.P(
-                    children='Track the trended prices of stocks '
-                    'and assess sell/buy activities.',
+                    children='Track the trended prices of assets '
+                    'and make better financial decisions.',
                     className='header-description',
                 ),
             ],
@@ -42,31 +42,32 @@ app.layout = html.Div(
         ),
         html.Div(
             children=[
+            html.Div(
+                children=[
+                html.Div(children='Company Search', className='menu-title'),
+                #dcc.Store(id='memory-output1')
+                dcc.Input(id='company-name', value='Alphabet Inc', type='search')
+                ]
+                ),
+            html.Div(
+                children=[
+                html.Div(children='Symbol Search', className='menu-title'),
+                dcc.Input(id='company-symbol', value='GOOGL', type='search')
+                ]
+                ),
+            html.Div(
+                children=[
                 html.Div(
-                    children=[
-                        html.Div(children='Company Search', className='menu-title'),
-                        dcc.Input(id='company-name', value='Alphabet Inc', type='search')
-                        ]
-                        ),
-                html.Div(
-                    children=[
-                        html.Div(children='Symbol Search', className='menu-title'),
-                        dcc.Input(id='company-symbol', value='GOOGL', type='search')
-                        ]
-                        ),
-                html.Div(
-                    children=[
-                        html.Div(
-                            children='Date Range',
-                            className='menu-title'
-                            ),
-                        dcc.DatePickerRange(
-                            id='date-range',
-                            min_date_allowed='1900-01-01',
-                            max_date_allowed=date.today(),
-                            start_date=date.today() - relativedelta(days = 365),
-                            end_date=date.today()
-                        )])
+                    children='Date Range',
+                    className='menu-title'
+                    ),
+                dcc.DatePickerRange(
+                    id='date-range',
+                    min_date_allowed='1900-01-01',
+                    max_date_allowed=date.today(),
+                    start_date=date.today() - relativedelta(days = 365),
+                    end_date=date.today()
+                    )])
             ],
             className='menu',
         ),
@@ -96,6 +97,9 @@ app.layout = html.Div(
                         html.Div(children=[
                             dcc.Graph(id='compared-chart', config={'displayModeBar': False})],
                             className='card'),
+                        html.Div(children=[
+                            dcc.Graph(id='ratio-chart', config={'displayModeBar': False})],
+                            className='card'),
                         ],
                         )
                     ],
@@ -112,6 +116,7 @@ app.layout = html.Div(
     [
         Output('trended-chart', 'figure'),
         Output('compared-chart', 'figure'),
+        Output('ratio-chart', 'figure'),
         Output('company_symbol', 'children'),
         Output('company_name', 'children')
      ],
@@ -138,6 +143,8 @@ def update_charts(symbol, name, start_date, end_date):
 	.replace("'", '') \
 	.lower()
     
+    industries_df = pd.DataFrame(pd.read_csv("industry_data.csv"))
+
     api_key='SI7YWG525NBBUL1O'
 
     if input_id == 'company-symbol':
@@ -148,13 +155,17 @@ def update_charts(symbol, name, start_date, end_date):
     	company_name =  yf.Ticker('GOOG').info['shortName']
     	company_symbol = 'GOOG'
     	stock_ticker = yf.Ticker('GOOG')
+    elif input_id == 'company-name':
+        r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
+        sym_initial = pd.DataFrame(r)
+        sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
+        company_symbol = list(sym['1. symbol'])[0]
+        company_name = list(sym['2. name'])[0]
+        stock_ticker = yf.Ticker(company_symbol)
     else:
-    	r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
-    	sym_initial = pd.DataFrame(r)
-    	sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
-    	company_symbol = list(sym['1. symbol'])[0]
-    	company_name = list(sym['2. name'])[0]
-    	stock_ticker = yf.Ticker(company_symbol)
+        company_name =  yf.Ticker(symbol).info['shortName']
+        company_symbol = symbol
+        stock_ticker = yf.Ticker(symbol)
 
     # We build the dataframe using the ticker symbol
 
@@ -219,7 +230,50 @@ def update_charts(symbol, name, start_date, end_date):
                   xaxis_title=None,
                   barmode='group',
                   template='plotly_white',)
-    return trended_chart_figure, compared_chart_figure, company_symbol, company_name
+
+    industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
+
+    industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
+
+    ratios = pd.DataFrame({
+        'ticker': symbol,
+        'industry': industry_stats['industry'],
+        'pe_ratio': stock_ticker.info['trailingPE'],
+        'industry_pe': industry_stats['trailing_pe'],
+        'ps_ratio': stock_ticker.info['priceToSalesTrailing12Months'],
+        'industry_ps': industry_stats['trailing_ps']
+        }).melt(id_vars=['ticker', 'industry'], 
+               var_name='Type',
+               value_name='Value')
+    r = ratios['ticker']
+    t = ratios['industry']
+    v = ratios['Type']
+    w = ratios['Value']
+
+    ratio_chart_figure = go.Figure(
+        data=[go.Bar(
+        x=v,
+        y=w,
+        text=w,
+        customdata=t, 
+        textposition='outside',
+        marker=dict(color='LightSeaGreen'),
+        hovertemplate='<br>'
+        .join(['Industry: %{customdata}<extra></extra>',
+               'Type: %{x}',
+               'Value: %{y}'
+              ]),
+        texttemplate='%{y}'
+        )])
+
+    ratio_chart_figure.update_layout(title = 'Ratio Comparisons',
+                  yaxis_title=None,
+                  xaxis_title=None,
+                  barmode='group',
+                  template='plotly_white',)
+
+
+    return trended_chart_figure, compared_chart_figure, ratio_chart_figure, company_symbol, company_name
 
 
 if __name__ == '__main__':
