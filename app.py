@@ -138,9 +138,8 @@ def update_charts(symbol, name, start_date, end_date):
     .replace('.', '') \
 	.replace(',', '') \
 	.replace(' Inc', '') \
-	.replace(' ', '') \
 	.replace(' inc', '') \
-	.replace("'", '') \
+	.replace("'", '`') \
 	.lower()
     
     industries_df = pd.DataFrame(pd.read_csv("industry_data.csv"))
@@ -157,8 +156,8 @@ def update_charts(symbol, name, start_date, end_date):
     	stock_ticker = yf.Ticker('GOOG')
     elif input_id == 'company-name':
         r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
-        sym_initial = pd.DataFrame(r)
-        sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
+        sym = pd.DataFrame(r)
+        #sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
         company_symbol = list(sym['1. symbol'])[0]
         company_name = list(sym['2. name'])[0]
         stock_ticker = yf.Ticker(company_symbol)
@@ -235,16 +234,51 @@ def update_charts(symbol, name, start_date, end_date):
 
     industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
 
-    ratios = pd.DataFrame({
-        'ticker': symbol,
-        'industry': industry_stats['industry'],
-        'pe_ratio': stock_ticker.info['trailingPE'],
-        'industry_pe': industry_stats['trailing_pe'],
-        'ps_ratio': stock_ticker.info['priceToSalesTrailing12Months'],
-        'industry_ps': industry_stats['trailing_ps']
-        }).melt(id_vars=['ticker', 'industry'], 
-               var_name='Type',
-               value_name='Value')
+    if 'trailingPE' in stock_ticker.info and 'priceToSalesTrailing12Months' in stock_ticker.info:
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': industry_stats['industry'],
+            'P/E Ratio': stock_ticker.info['trailingPE'],
+            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'P/S Ratio': stock_ticker.info['priceToSalesTrailing12Months'],
+            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+    elif 'trailingPE' in stock_ticker.info:
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': industry_stats['industry'],
+            'P/E Ratio': stock_ticker.info['trailingPE'],
+            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'P/S Ratio': 'NaN',
+            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+    elif 'priceToSalesTrailing12Months' in stock_ticker.info:
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': industry_stats['industry'],
+            'P/E Ratio': 'NaN',
+            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'P/S Ratio': stock_ticker.info['priceToSalesTrailing12Months'],
+            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+    else:
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': industry_stats['industry'],
+            'P/E Ratio': 'NaN',
+            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'P/S Ratio': 'NaN',
+            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+
     r = ratios['ticker']
     t = ratios['industry']
     v = ratios['Type']
@@ -257,7 +291,7 @@ def update_charts(symbol, name, start_date, end_date):
         text=w,
         customdata=t, 
         textposition='outside',
-        marker=dict(color='LightSeaGreen'),
+        marker=dict(color='magenta'),
         hovertemplate='<br>'
         .join(['Industry: %{customdata}<extra></extra>',
                'Type: %{x}',
@@ -274,6 +308,7 @@ def update_charts(symbol, name, start_date, end_date):
 
 
     return trended_chart_figure, compared_chart_figure, ratio_chart_figure, company_symbol, company_name
+
 
 
 if __name__ == '__main__':
