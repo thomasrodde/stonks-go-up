@@ -8,7 +8,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import plotly.graph_objects as go
-from dash.dependencies import Output, Input
+from dash.dependencies import Output, Input, State
 import requests
 
 # Current reported fields: price history, recent price comparisons
@@ -42,11 +42,10 @@ app.layout = html.Div(
         ),
         html.Div(
             children=[
-            html.Div(
-                children=[
+            html.Div([
                 html.Div(children='Company Search', className='menu-title'),
-                #dcc.Store(id='memory-output1')
-                dcc.Input(id='company-name', value='Alphabet Inc', type='search')
+                html.Div(dcc.Input(id='company-name', value='Alphabet Inc', type='text')),
+                html.Button(id='submit-button', n_clicks=0, children='Search'),
                 ]
                 ),
             html.Div(
@@ -109,7 +108,36 @@ app.layout = html.Div(
                 )
         ]
         )
+@app.callback(
+        [Output('company-symbol', 'value')],
+        [Input('submit-button', 'n_clicks')],
+        [State('company-name', 'value')]
+)
+def return_symbol(n_clicks, name):
 
+    stripped_name = name \
+    .replace('.', '') \
+    .replace(',', '') \
+    .replace(' Inc', '') \
+    .replace(' inc', '') \
+    .replace("'", '`') \
+    .lower()
+
+    api_key='SI7YWG525NBBUL1O'
+
+    if stripped_name == 'google':
+        company_name =  yf.Ticker('GOOG').info['shortName']
+        company_symbol = 'GOOG'
+        stock_ticker = yf.Ticker('GOOG')
+    else:
+        r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
+        sym_initial = pd.DataFrame(r)
+        sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
+        company_symbol = list(sym['1. symbol'])[0]
+        company_name = list(sym['2. name'])[0]
+        stock_ticker = yf.Ticker(company_symbol)
+
+    return [company_symbol]
 # To process filters and user input, we'll callback to the Yahoo API data source.
 # The trend and price comparison charts should update simultaneously.
 @app.callback(
@@ -122,49 +150,22 @@ app.layout = html.Div(
      ],
     [
         Input('company-symbol', 'value'),
-        Input('company-name', 'value'),
+#        Input('company-name', 'value'),
         Input('date-range', 'start_date'),
         Input('date-range', 'end_date'),
     ],
 )
-def update_charts(symbol, name, start_date, end_date):
-    
-    # Trended prices are updated when the user selects a symbol and start/end dates
-    # Declaring the API call as an initial variable avoids making excessive calls and slowing down chart loading
-    
-    ctx = dash.callback_context
-    input_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    stripped_name = name \
-    .replace('.', '') \
-	.replace(',', '') \
-	.replace(' Inc', '') \
-	.replace(' inc', '') \
-	.replace("'", '`') \
-	.lower()
+
+# Trended prices are updated when the user selects start/end dates and a symbol or the return_symbol function 
+# returns a .
+# Declaring the API call as an initial variable avoids making excessive calls and slowing down chart loading
+def update_charts(symbol, start_date, end_date):
     
     industries_df = pd.DataFrame(pd.read_csv("industry_data.csv"))
 
-    api_key='SI7YWG525NBBUL1O'
-
-    if input_id == 'company-symbol':
-    	company_name =  yf.Ticker(symbol).info['shortName']
-    	company_symbol = symbol
-    	stock_ticker = yf.Ticker(symbol)
-    elif stripped_name == 'google':
-    	company_name =  yf.Ticker('GOOG').info['shortName']
-    	company_symbol = 'GOOG'
-    	stock_ticker = yf.Ticker('GOOG')
-    elif input_id == 'company-name':
-        r = requests.get('https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}'.format(stripped_name, api_key)).json()['bestMatches']
-        sym = pd.DataFrame(r)
-        #sym = sym_initial[~sym_initial['1. symbol'].str.contains('.', regex=False)]
-        company_symbol = list(sym['1. symbol'])[0]
-        company_name = list(sym['2. name'])[0]
-        stock_ticker = yf.Ticker(company_symbol)
-    else:
-        company_name =  yf.Ticker(symbol).info['shortName']
-        company_symbol = symbol
-        stock_ticker = yf.Ticker(symbol)
+    company_name =  yf.Ticker(symbol).info['shortName']
+    company_symbol = symbol
+    stock_ticker = yf.Ticker(symbol)
 
     # We build the dataframe using the ticker symbol
 
@@ -221,7 +222,7 @@ def update_charts(symbol, name, start_date, end_date):
         texttemplate='%{y}'
         )])
     # We have to make some layout tweaks to match the trended chart's styling
-    compared_chart_figure.update_yaxes(# Prices are in dollars
+    compared_chart_figure.update_yaxes(
         tickprefix='$', showgrid=True
         )
     compared_chart_figure.update_layout(title = 'Interday Price Comparisons',
@@ -229,6 +230,8 @@ def update_charts(symbol, name, start_date, end_date):
                   xaxis_title=None,
                   barmode='group',
                   template='plotly_white',)
+
+    # Merges yfinance and selected ticker industries to pull corresponding P/E/S ratios
 
     industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
 
