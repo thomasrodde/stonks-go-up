@@ -233,11 +233,9 @@ def update_charts(symbol, start_date, end_date):
 
     # Merges yfinance and selected ticker industries to pull corresponding P/E/S ratios
 
-    industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
-
-    industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
-
-    if 'trailingPE' in stock_ticker.info and 'priceToSalesTrailing12Months' in stock_ticker.info:
+    if 'trailingPE' in stock_ticker.info and 'priceToSalesTrailing12Months' and 'industry' in stock_ticker.info:
+        industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
+        industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
         ratios = pd.DataFrame({
             'ticker': symbol,
             'industry': industry_stats['industry'],
@@ -248,7 +246,9 @@ def update_charts(symbol, start_date, end_date):
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
-    elif 'trailingPE' in stock_ticker.info:
+    elif 'trailingPE' and 'industry' in stock_ticker.info:
+        industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
+        industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
         ratios = pd.DataFrame({
             'ticker': symbol,
             'industry': industry_stats['industry'],
@@ -259,13 +259,39 @@ def update_charts(symbol, start_date, end_date):
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
-    elif 'priceToSalesTrailing12Months' in stock_ticker.info:
+    elif 'priceToSalesTrailing12Months' and 'industry' in stock_ticker.info:
+        industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
+        industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
         ratios = pd.DataFrame({
             'ticker': symbol,
             'industry': industry_stats['industry'],
             'P/E Ratio': 'NaN',
             'Industry P/E Ratio': industry_stats['trailing_pe'],
             'P/S Ratio': stock_ticker.info['priceToSalesTrailing12Months'],
+            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+    elif 'priceToSalesTrailing12Months' and 'trailingPE' in stock_ticker.info:
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': 'NaN',
+            'P/E Ratio': stock_ticker.info['trailingPE'],
+            'Industry P/E Ratio': 'NaN',
+            'P/S Ratio': stock_ticker.info['priceToSalesTrailing12Months'],
+            'Industry P/S Ratio': 'NaN'}) \
+        .melt(id_vars=['ticker', 'industry'], 
+            var_name='Type', 
+            value_name='Value')
+    elif 'industry' in stock_ticker.info:
+        industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
+        industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
+        ratios = pd.DataFrame({
+            'ticker': symbol,
+            'industry': industry_stats['industry'],
+            'P/E Ratio': 'NaN',
+            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'P/S Ratio': 'NaN',
             'Industry P/S Ratio': industry_stats['trailing_ps']}) \
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
@@ -273,11 +299,11 @@ def update_charts(symbol, start_date, end_date):
     else:
         ratios = pd.DataFrame({
             'ticker': symbol,
-            'industry': industry_stats['industry'],
+            'industry': 'NaN',
             'P/E Ratio': 'NaN',
-            'Industry P/E Ratio': industry_stats['trailing_pe'],
+            'Industry P/E Ratio': 'NaN',
             'P/S Ratio': 'NaN',
-            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+            'Industry P/S Ratio': 'NaN'}, index=['no data']) \
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')

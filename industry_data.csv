@@ -6,9 +6,9 @@ Air Transport,17,13.47,0.94,Airports & Air Services
 Apparel,51,22.76,1.60,Apparel Retail
 Apparel,51,22.76,1.60,Footwear & Accessories
 Auto & Truck,19,261.56,2.71,Auto & Truck Dealerships
+Auto & Truck,19,261.56,2.71,Auto Manufacturers
 Auto Parts,52,55.56,1.37,Auto Parts
 Bank (Money Center),7,14.86,3.13,Banks—Diversified
-Bank (Money Center),7,14.86,3.13,Credit Services
 Banks (Regional),598,15.39,3.74,Banks—Regional
 Beverage (Alcoholic),23,32.39,4.37,Beverages—Brewers
 Beverage (Alcoholic),23,32.39,4.37,Beverages—Wineries & Distilleries
@@ -45,6 +45,7 @@ Environmental & Waste Services,86,549.58,2.72,Waste Management
 Farming/Agriculture,32,23.82,0.97,Farm & Heavy Construction Machinery
 Financial Svcs. (Non-bank & Insurance),235,21.86,3.26,Financial Data & Stock Exchanges
 Financial Svcs. (Non-bank & Insurance),235,21.86,3.26,Shell Companies
+Financial Svcs. (Non-bank & Insurance),235,21.86,3.26,Credit Services
 Food Processing,101,375.19,1.71,Packaged Foods
 Food Wholesalers,18,8.64,0.38,
 Furn/Home Furnishings,40,125.50,1.08,
@@ -106,6 +107,7 @@ Retail (Distributors),85,138.44,1.06,Food Distribution
 Retail (Distributors),85,138.44,1.06,Industrial Distribution
 Retail (General),17,22.70,0.81,Department Stores
 Retail (Grocery and Food),14,14.41,0.21,Grocery Stores
+Retail (Grocery and Food),14,14.41,0.21,Farm Products
 Retail (Online),75,131.27,4.52,Internet Retail
 Retail (Special Lines),85,55.99,0.81,Specialty Retail
 Rubber& Tires,3,24.89,0.31,
