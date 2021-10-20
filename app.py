@@ -74,40 +74,37 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                    dcc.Loading(
-                        id='loading-1',
-                        type='default',
-                        children=[
                         html.Div(children=[
                             html.Div(children=[
                                 html.Div(children='Name:',
-                                 className='menu-title',
-                                  style={'display': 'inline-block', 'padding': '5px'}),
+                                    className='menu-title',
+                                    style={'display': 'inline-block', 'padding': '5px'}),
                                 html.Div(id = 'company_name', style={'display': 'inline-block'})]),
+                                html.Div(children=[
+                                    html.Div(children='Symbol: ',
+                                        className='menu-title',
+                                        style={'display': 'inline-block', 'padding': '5px'}),
+                                    html.Div(id = 'company_symbol', style={'display': 'inline-block'})])],
+                                className='subtitle'),
+                        dcc.Loading(
+                            id='loading-1',
+                            type='default',
+                            children=[
                             html.Div(children=[
-                                html.Div(children='Symbol: ',
-                                 className='menu-title',
-                                  style={'display': 'inline-block', 'padding': '5px'}),
-                                html.Div(id = 'company_symbol', style={'display': 'inline-block'})])],
-                            className='subtitle'),
-                        html.Div(children=[
-                            dcc.Graph(id='trended-chart',config={'displayModeBar': False})],
+                            dcc.Graph(id='trended-chart', config={'displayModeBar': False})],
                             className='card'),
-                        html.Div(children=[
-                            dcc.Graph(id='compared-chart', config={'displayModeBar': False})],
-                            className='card'),
-                        html.Div(children=[
-                            dcc.Graph(id='ratio-chart', config={'displayModeBar': False})],
-                            className='card'),
-                        ],
+                            html.Div(children=[
+                                dcc.Graph(id='compared-chart', config={'displayModeBar': False})],
+                                className='card'),
+                            html.Div(children=[
+                                dcc.Graph(id='ratio-chart', config={'displayModeBar': False})],
+                                className='card')]
                         )
-                    ],
-                    )
-                ],
-                className='wrapper'
+                        ],
+                        className='wrapper'
                 )
-        ]
-        )
+                ]
+        )])
 @app.callback(
         [Output('company-symbol', 'value')],
         [Input('submit-button', 'n_clicks')],
@@ -143,25 +140,21 @@ def return_symbol(n_clicks, name):
 @app.callback(
     [
         Output('trended-chart', 'figure'),
-        Output('compared-chart', 'figure'),
-        Output('ratio-chart', 'figure'),
         Output('company_symbol', 'children'),
         Output('company_name', 'children')
      ],
     [
         Input('company-symbol', 'value'),
-#        Input('company-name', 'value'),
         Input('date-range', 'start_date'),
         Input('date-range', 'end_date'),
     ],
 )
 
-# Trended prices are updated when the user selects start/end dates and a symbol or the return_symbol function 
-# returns a .
-# Declaring the API call as an initial variable avoids making excessive calls and slowing down chart loading
-def update_charts(symbol, start_date, end_date):
-    
-    industries_df = pd.DataFrame(pd.read_csv("industry_data.csv"))
+# Trended prices are updated when:
+# 1. The user selects start/end dates
+# 2. The user selects a symbol
+# 3. The user searches for a stock and the return_symbol function passes a symbol to update_trend
+def update_trend(symbol, start_date, end_date):
 
     company_name =  yf.Ticker(symbol).info['shortName']
     company_symbol = symbol
@@ -193,12 +186,32 @@ def update_charts(symbol, start_date, end_date):
             'colorway': ['#17B897'],
         },
     }
+
+    return trended_chart_figure, company_symbol, company_name
+
+@app.callback(
+    [
+        Output('compared-chart', 'figure'),
+        Output('ratio-chart', 'figure')
+     ],
+    [
+        Input('company-symbol', 'value')
+    ],
+)
+def update_comparisons(symbol):
+
+    industries_df = pd.DataFrame(pd.read_csv("industry_data.csv"))
+
+    company_name =  yf.Ticker(symbol).info['shortName']
+    company_symbol = symbol
+    stock_ticker = yf.Ticker(symbol)
+
     # Compared prices are updated when the user selects a symbol or company
     compared_prices = pd.DataFrame({
         'ticker': [company_symbol],
-    	'Two Hundred Day Average': [stock_ticker.info['twoHundredDayAverage']],
-    	'Fifty Day Average': [stock_ticker.info['fiftyDayAverage']],
-    	'Previous Close': [stock_ticker.info['previousClose']]}) \
+        'Two Hundred Day Average': [stock_ticker.info['twoHundredDayAverage']],
+        'Fifty Day Average': [stock_ticker.info['fiftyDayAverage']],
+        'Previous Close': [stock_ticker.info['previousClose']]}) \
         .melt(id_vars=['ticker'], 
                var_name=['Type'],
                value_name='Value')
@@ -303,7 +316,7 @@ def update_charts(symbol, start_date, end_date):
             'P/E Ratio': 'NaN',
             'Industry P/E Ratio': 'NaN',
             'P/S Ratio': 'NaN',
-            'Industry P/S Ratio': 'NaN'}, index=['no data']) \
+            'Industry P/S Ratio': 'NaN'}, index=[0]) \
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
@@ -334,10 +347,7 @@ def update_charts(symbol, start_date, end_date):
                   xaxis_title=None,
                   barmode='group',
                   template='plotly_white',)
-
-
-    return trended_chart_figure, compared_chart_figure, ratio_chart_figure, company_symbol, company_name
-
+    return compared_chart_figure, ratio_chart_figure
 
 
 if __name__ == '__main__':
