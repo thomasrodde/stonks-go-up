@@ -42,16 +42,16 @@ app.layout = html.Div(
         ),
         html.Div(
             children=[
+            html.Div(
+                children=[
+                html.Div(children='Symbol Entry', className='menu-title'),
+                dcc.Input(id='company-symbol', value='GOOGL', type='search')
+                ]
+                ),
             html.Div([
                 html.Div(children='Company Search', className='menu-title'),
                 html.Div(dcc.Input(id='company-name', value='Alphabet Inc', type='text')),
                 html.Button(id='submit-button', n_clicks=0, children='Search'),
-                ]
-                ),
-            html.Div(
-                children=[
-                html.Div(children='Symbol Search', className='menu-title'),
-                dcc.Input(id='company-symbol', value='GOOGL', type='search')
                 ]
                 ),
             html.Div(
