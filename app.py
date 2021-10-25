@@ -292,7 +292,7 @@ def update_comparisons(symbol):
             'P/E Ratio': stock_ticker.info['trailingPE'],
             'Industry P/E Ratio': 'NaN',
             'P/S Ratio': stock_ticker.info['priceToSalesTrailing12Months'],
-            'Industry P/S Ratio': 'NaN'}) \
+            'Industry P/S Ratio': 'NaN'}, index=[0]) \
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
@@ -305,7 +305,7 @@ def update_comparisons(symbol):
             'P/E Ratio': 'NaN',
             'Industry P/E Ratio': industry_stats['trailing_pe'],
             'P/S Ratio': 'NaN',
-            'Industry P/S Ratio': industry_stats['trailing_ps']}) \
+            'Industry P/S Ratio': industry_stats['trailing_ps']}, index=[0]) \
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
@@ -322,20 +322,21 @@ def update_comparisons(symbol):
             value_name='Value')
 
     r = ratios['ticker']
-    t = ratios['industry']
+    t = ratios.industry[0]
     v = ratios['Type']
     w = ratios['Value']
+
 
     ratio_chart_figure = go.Figure(
         data=[go.Bar(
         x=v,
         y=w,
         text=w,
-        customdata=t, 
+        customdata=r,
         textposition='outside',
         marker=dict(color='magenta'),
         hovertemplate='<br>'
-        .join(['Industry: %{customdata}<extra></extra>',
+        .join(['Ticker: %{customdata}<extra></extra>',
                'Type: %{x}',
                'Value: %{y}'
               ]),
@@ -344,7 +345,7 @@ def update_comparisons(symbol):
 
     ratio_chart_figure.update_layout(title = 'Ratio Comparisons',
                   yaxis_title=None,
-                  xaxis_title=None,
+                  xaxis_title='Industry: ' + t,
                   barmode='group',
                   template='plotly_white',)
     return compared_chart_figure, ratio_chart_figure
