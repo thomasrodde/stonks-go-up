@@ -259,7 +259,7 @@ def update_comparisons(symbol):
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
-    elif 'trailingPE' and 'industry' in stock_ticker.info:
+    elif 'trailingPE' in stock_ticker.info and 'industry' in stock_ticker.info:
         industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
         industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
         ratios = pd.DataFrame({
@@ -272,7 +272,7 @@ def update_comparisons(symbol):
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
-    elif 'priceToSalesTrailing12Months' and 'industry' in stock_ticker.info:
+    elif 'priceToSalesTrailing12Months' in stock_ticker.info and 'industry' in stock_ticker.info:
         industries = industries_df.loc[industries_df['yfinance_industry'] == stock_ticker.info['industry']]
         industry_stats = industries[['industry', 'trailing_pe', 'trailing_ps']]
         ratios = pd.DataFrame({
@@ -285,7 +285,7 @@ def update_comparisons(symbol):
         .melt(id_vars=['ticker', 'industry'], 
             var_name='Type', 
             value_name='Value')
-    elif 'priceToSalesTrailing12Months' and 'trailingPE' in stock_ticker.info:
+    elif 'priceToSalesTrailing12Months' in stock_ticker.info and 'trailingPE' in stock_ticker.info:
         ratios = pd.DataFrame({
             'ticker': symbol,
             'industry': 'NaN',
