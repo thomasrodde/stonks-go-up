@@ -28,13 +28,13 @@ app.layout = html.Div(
     children=[
         html.Div(
             children=[
-                html.P(children='🤑', className='header-emoji'),
+                html.Img(src=app.get_asset_url('cat-money.png'), className='header-emoji'),
                 html.H1(
                     children='Tidysums', className='header-title'
                 ),
                 html.P(
-                    children='Track the trended prices of assets '
-                    'and make better financial decisions.',
+                    children='Track the trended prices of securities '
+                    'and multiply your investment gains.',
                     className='header-description',
                 ),
             ],
@@ -104,7 +104,12 @@ app.layout = html.Div(
                         className='wrapper'
                 )
                 ]
-        )])
+        ),
+        html.Div(
+            children=[html.P(children=["Documentation can be found "
+                , html.A(children="here", href="https://thomaspmm.com/2021/10/21/tidysums-documentation/", target="_blank")])],
+            className='wrapper')
+        ])
 @app.callback(
         [Output('company-symbol', 'value')],
         [Input('submit-button', 'n_clicks')],

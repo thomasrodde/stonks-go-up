@@ -11,9 +11,10 @@ body {
 }
 
 .header-emoji {
-    font-size: 42px;
-    margin: 0 auto;
-    text-align: center;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 7%;
 }
 
 .header-title {
