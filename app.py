@@ -212,14 +212,27 @@ def update_comparisons(symbol):
     stock_ticker = yf.Ticker(symbol)
 
     # Compared prices are updated when the user selects a symbol or company
-    compared_prices = pd.DataFrame({
+
+    if 'twoHundredDayAverage' in stock_ticker.info:
+    	compared_prices = pd.DataFrame({
+        	'ticker': [company_symbol],
+        	'Two Hundred Day Average': [stock_ticker.info['twoHundredDayAverage']],
+        	'Fifty Day Average': [stock_ticker.info['fiftyDayAverage']],
+        	'Previous Close': [stock_ticker.info['previousClose']]}, index=[0]) \
+    	.melt(id_vars=['ticker'], 
+    		var_name=['Type'],
+    		value_name='Value')
+    else:
+    	compared_prices = pd.DataFrame({
         'ticker': [company_symbol],
-        'Two Hundred Day Average': [stock_ticker.info['twoHundredDayAverage']],
-        'Fifty Day Average': [stock_ticker.info['fiftyDayAverage']],
-        'Previous Close': [stock_ticker.info['previousClose']]}) \
-        .melt(id_vars=['ticker'], 
-               var_name=['Type'],
-               value_name='Value')
+        'Two Hundred Day Average': 'NaN',
+        'Fifty Day Average': 'NaN',
+        'Previous Close': 'NaN'}, index=[0]) \
+    .melt(id_vars=['ticker'], 
+    	var_name=['Type'],
+    	value_name='Value')
+
+
     x=compared_prices['Type']
     y=compared_prices['Value']
     z=compared_prices['ticker']
